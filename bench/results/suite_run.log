@@ -1,0 +1,489 @@
+Goal: Open Notepad and type: The quick brown fox   (Ctrl+Alt+Q or mouse to a 
+screen corner to abort)
+Plan (5.3s): open Notepad -> press ctrl+n -> wait 1 seconds -> type "The quick 
+brown fox" -> press enter
+1. [open Notepad] launch Notepad (skill)
+   -> launched 'Notepad' from Start
+2. [press ctrl+n] hotkey ctrl+n (skill)
+   -> pressed ctrl+n
+3. [wait 1 seconds] wait  (skill)
+   -> waited 1.0s
+4. [type "The quick brown fox"] type The quick brown fox (skill)
+   -> typed 19 chars
+5. [press enter] hotkey enter (skill)
+   -> pressed enter (no visible change)
+6. final check -> False - The quick brown fox is not fully typed in Notepad.
+error: ModelError('qwen2.5vl:3b: request (6239 tokens) exceeds the available 
+context size (6144 tokens), try increasing it')
+Report: runs\suite\20261019-225232\report.html
+== notepad-type: FAIL (none of ['quick brown fox'] on screen) agent said error, 102.9s
+Goal: Open Notepad, type: saved by omni-agent, then save it as 
+C:\Users\hp\omni-agent-sandbox\note.txt   (Ctrl+Alt+Q or mouse to a screen 
+corner to abort)
+Plan (30.7s): open Notepad -> press ctrl+n -> wait 1 seconds -> type "saved by 
+omni-agent" -> press enter -> click Save -> type 
+"C:\Users\hp\omni-agent-sandbox\note.txt" -> press Enter
+1. [open Notepad] launch Notepad (skill)
+   -> launched 'Notepad' from Start
+2. [press ctrl+n] hotkey ctrl+n (skill)
+aborted: active window '● .env - competitor-tool - Visual Studio Code' is not 
+in the allow-list
+Report: runs\suite\20261019-225442\report.html
+== notepad-save: FAIL (file C:\Users\hp\omni-agent-sandbox\note.txt missing or lacks 'saved by omni-agent') agent said aborted, 38.9s
+Goal: Open Notepad and zoom in once with the keyboard   (Ctrl+Alt+Q or mouse to
+a screen corner to abort)
+Plan (4.2s): open Notepad -> press alt + -
+1. [open Notepad] launch Notepad (skill)
+   -> launched 'Notepad' from Start
+2. [press alt + -] type alt + - (planner)
+   -> typed 7 chars
+3. [press alt + -] type alt + - (planner)
+   -> typed 7 chars
+4. [press alt + -] type alt + - (planner)
+aborted: active window '● .env - competitor-tool - Visual Studio Code' is not 
+in the allow-list
+Report: runs\suite\20261019-225455\report.html
+   closed new windows: ['*The quick brown fox - Notepad']
+== notepad-zoom: FAIL (none of ['110%'] on screen) agent said aborted, 49.5s
+Goal: Use Calculator to compute 125 times 8   (Ctrl+Alt+Q or mouse to a screen 
+corner to abort)
+Plan (4.9s): open Calculator -> type "125*8" -> press enter
+1. [open Calculator] launch Calculator (skill)
+   -> launched 'Calculator' from Start
+2. [type "125*8"] type 125*8 (skill)
+   -> typed 5 chars
+3. [press enter] hotkey enter (skill)
+   -> pressed enter (no visible change)
+4. final check -> False - The goal is to compute 125 times 8 using a 
+calculator, but the screenshot shows a different calculation and no visible 
+result.
+error: ModelError('qwen2.5vl:3b: request (6225 tokens) exceeds the available 
+context size (6144 tokens), try increasing it')
+Report: runs\suite\20261019-225546\report.html
+   closed new windows: ['Calculator']
+== calc-multiply: PASS (found ['1,000']) agent said error, 101.1s
+Goal: Use Calculator to compute 125 times 8   (Ctrl+Alt+Q or mouse to a screen 
+corner to abort)
+Plan (27.3s): open Calculator -> type "125*8" -> press enter
+1. [open Calculator] launch Calculator (skill)
+   -> launched 'Calculator' from Start
+2. [type "125*8"] type 125*8 (skill)
+   -> typed 5 chars
+3. [press enter] hotkey enter (skill)
+   -> pressed enter
+4. final check -> True - The calculation of 125 times 8 has been completed and 
+displayed on the screen.
+Stored trajectory for replay: 
+trajectories\suite\use-calculator-to-compute-125-times-8-1e5d4ad6
+done: The calculation of 125 times 8 has been completed and displayed on the 
+screen.
+Report: runs\suite\20261019-225750\report.html
+   closed new windows: ['Calculator']
+   replay: FAIL in 97.6s (0 replayed actions)
+Goal: Use Calculator to add 4821 and 179   (Ctrl+Alt+Q or mouse to a screen 
+corner to abort)
+Plan (9.9s): open Calculator -> type "4821" -> press enter -> type "+" -> type 
+"179" -> press enter
+1. [open Calculator] launch Calculator (skill)
+   -> launched 'Calculator' from Start
+2. [type "4821"] type 4821 (skill)
+   -> typed 4 chars
+3. [press enter] hotkey enter (skill)
+   -> pressed enter (no visible change)
+4. [type "+"] type + (skill)
+   -> typed 1 chars
+5. [type "179"] type 179 (skill)
+   -> typed 3 chars
+6. [press enter] hotkey enter (skill)
+   -> pressed enter (no visible change)
+7. final check -> False - The goal is to add 4821 and 179 using the calculator,
+but the result has not been displayed yet.
+8. [finish the goal: Use Calculator to add 4821 and 179] type 4821 (planner)
+aborted: active window 'github profile structures - Search and 2 more pages - 
+Personal - Microsoft​ Edge' is not in the allow-list
+Report: runs\suite\20261019-225911\report.html
+   closed new windows: ['Calculator']
+== calc-add: FAIL (none of ['5,000', '5000'] on screen) agent said aborted, 134.4s
+Goal: Use Calculator to divide 144 by 12   (Ctrl+Alt+Q or mouse to a screen 
+corner to abort)
+Plan (6.5s): open Calculator -> type "144/12" -> press enter
+1. [open Calculator] launch Calculator (skill)
+   -> launched 'Calculator' from Start
+2. [type "144/12"] type 144/12 (skill)
+aborted: active window 'GitHub Profile README Examples for Developers | 
+GitSkins and 2 more pages - Personal - Microsoft​ Edge' is not in the allow-list
+Report: runs\suite\20261019-230123\report.html
+== calc-divide: FAIL (exact ['12'] on screen: False) agent said aborted, 14.9s
+Goal: Switch Calculator to Scientific mode   (Ctrl+Alt+Q or mouse to a screen 
+corner to abort)
+Plan (5.5s): open Calculator -> click Mode -> click Scientific
+1. [open Calculator] launch Calculator (skill)
+   -> launched 'Calculator' from Start
+2. [click Mode] click Mode (skill)
+   -> clicked 'mod'
+3. [click Scientific] click Scientific (skill)
+   -> clicked 'Scientific' (no visible change)
+4. final check -> False - The Calculator is not in Scientific mode.
+error: ModelError('qwen2.5vl:3b: request (6216 tokens) exceeds the available 
+context size (6144 tokens), try increasing it')
+Report: runs\suite\20261019-230137\report.html
+   closed new windows: ['Calculator']
+== calc-scientific: PASS (found ['Scientific']) agent said error, 104.7s
+Goal: Switch Calculator to Scientific mode   (Ctrl+Alt+Q or mouse to a screen 
+corner to abort)
+Plan (21.8s): open Calculator -> click Mode -> click Scientific
+1. [open Calculator] launch Calculator (skill)
+   -> launched 'Calculator' from Start
+2. [click Mode] click Mode (skill)
+   -> clicked 'mod'
+3. [click Scientific] click Scientific (skill)
+   -> clicked 'Scientific' (no visible change)
+4. final check -> False - The goal is to switch Calculator to Scientific mode, 
+but the current screen shows a list of tasks and benchmarks rather than the 
+Calculator app in Scientific mode.
+error: ModelError('qwen2.5vl:3b: request (6196 tokens) exceeds the available 
+context size (6144 tokens), try increasing it')
+Report: runs\suite\20261019-230339\report.html
+   closed new windows: ['Calculator']
+   replay: PASS in 116.0s (0 replayed actions)
+Goal: Switch Calculator to Programmer mode   (Ctrl+Alt+Q or mouse to a screen 
+corner to abort)
+Plan (21.1s): open Calculator -> type "mode prog" -> press enter
+1. [open Calculator] launch Calculator (skill)
+   -> launched 'Calculator' from Start
+2. [type "mode prog"] type mode prog (skill)
+   -> typed 9 chars
+3. [press enter] hotkey enter (skill)
+   -> pressed enter (no visible change)
+4. final check -> False - The goal is not visually complete as the Calculator 
+is still in Scientific mode and not switched to Programmer mode.
+error: ModelError('qwen2.5vl:3b: request (6255 tokens) exceeds the available 
+context size (6144 tokens), try increasing it')
+Report: runs\suite\20261019-230535\report.html
+   closed new windows: ['Calculator']
+== calc-programmer: FAIL (none of ['Programmer'] on screen) agent said error, 112.8s
+Goal: In Calculator compute 7 times 6, then open the History panel   
+(Ctrl+Alt+Q or mouse to a screen corner to abort)
+Plan (25.1s): open Calculator -> type "7*6" -> press enter -> scroll up
+1. [open Calculator] launch Calculator (skill)
+   -> launched 'Calculator' from Start
+2. [type "7*6"] type 7*6 (skill)
+   -> typed 3 chars
+3. [press enter] hotkey enter (skill)
+   -> pressed enter (no visible change)
+4. [scroll up] scroll  (skill)
+   -> scrolled up
+5. final check -> False - The task is incomplete as the user has not finished 
+the calculation and opened the History panel.
+6. [finish the goal: In Calculator compute 7 times 6, then open the History 
+panel] scroll  (planner)
+   -> scrolled up
+7. [finish the goal: In Calculator compute 7 times 6, then open the History 
+panel] type 7*6 (planner)
+   -> typed 3 chars
+8. [finish the goal: In Calculator compute 7 times 6, then open the History 
+panel] type 7*6 (planner)
+   -> typed 3 chars
+9. [finish the goal: In Calculator compute 7 times 6, then open the History 
+panel] type 7*6 (planner)
+   -> typed 3 chars
+10. [finish the goal: In Calculator compute 7 times 6, then open the History 
+panel] type 7*6 (planner)
+   -> typed 3 chars
+11. [finish the goal: In Calculator compute 7 times 6, then open the History 
+panel] type 7*6 (planner)
+   -> typed 3 chars
+12. [finish the goal: In Calculator compute 7 times 6, then open the History 
+panel] type 7*6 (planner)
+   -> typed 3 chars
+fail: step limit reached
+Report: runs\suite\20261019-230732\report.html
+   closed new windows: ['Calculator']
+== calc-history: FAIL (none of ['7 × 6 =', '7 x 6 =', '7×6='] on screen) agent said fail, 210.4s
+Goal: Open Settings and go to the Display page   (Ctrl+Alt+Q or mouse to a 
+screen corner to abort)
+Plan (4.3s): open Settings -> scroll down -> click Display
+1. [open Settings] launch Settings (skill)
+   -> launched 'Settings' from Start
+2. [scroll down] scroll  (skill)
+   -> scrolled down
+3. [click Display] click Display (skill)
+   -> clicked 'Display'
+4. final check -> False - The Display page is not visible in the current 
+screenshot.
+5. [finish the goal: Open Settings and go to the Display page] done  (planner)
+Stored trajectory for replay: 
+trajectories\suite\open-settings-and-go-to-the-display-page-055370eb
+done: all plan steps carried out
+Report: runs\suite\20261019-231042\report.html
+== settings-display: FAIL (none of ['Scale', 'Display resolution'] on screen) agent said done, 107.8s
+Goal: Open Settings and go to System, then About   (Ctrl+Alt+Q or mouse to a 
+screen corner to abort)
+Plan (4.9s): open Settings -> click System -> click About
+1. [open Settings] launch Settings (skill)
+   -> launched 'Settings' from Start (no visible change)
+2. [click System] click System (skill)
+   -> clicked 'System'
+3. [click About] click About (skill)
+   -> clicked 'About'
+4. final check -> False - The goal is to open Settings and go to System, then 
+About. The current screen shows the 'System' section, but the 'About' section 
+has not been clicked yet.
+5. [finish the goal: Open Settings and go to System, then About] done  
+(planner)
+Stored trajectory for replay: 
+trajectories\suite\open-settings-and-go-to-system-then-about-3e45e489
+done: all plan steps carried out
+Report: runs\suite\20261019-231231\report.html
+== settings-about: FAIL (none of ['Device specifications'] on screen) agent said done, 95.4s
+Goal: Open Settings and go to the Sound page   (Ctrl+Alt+Q or mouse to a screen
+corner to abort)
+Plan (4.1s): open Settings -> scroll down -> click Sound
+1. [open Settings] launch Settings (skill)
+   -> launched 'Settings' from Start (no visible change)
+2. [scroll down] scroll  (skill)
+   -> scrolled down
+3. [click Sound] click Sound (skill)
+   -> clicked 'Sound'
+4. final check -> False - The Sound page is not visible in the current 
+screenshot.
+5. [finish the goal: Open Settings and go to the Sound page] done  (planner)
+Stored trajectory for replay: 
+trajectories\suite\open-settings-and-go-to-the-sound-page-647324e9
+done: all plan steps carried out
+Report: runs\suite\20261019-231407\report.html
+   closed new windows: ['Activity Center']
+== settings-sound: FAIL (none of ['Output'] on screen) agent said done, 98.7s
+Goal: Open File Explorer and go to the Documents folder   (Ctrl+Alt+Q or mouse 
+to a screen corner to abort)
+Plan (4.1s): open File Explorer -> type "Documents"
+1. [open File Explorer] launch File Explorer (skill)
+   -> launched 'File Explorer' from Start
+2. [type "Documents"] type Documents (skill)
+   -> typed 9 chars
+3. final check -> False - The Documents folder is not visible in the current 
+view.
+4. [finish the goal: Open File Explorer and go to the Documents folder] click 
+Documents (planner)
+   -> clicked 'Documents'
+5. [finish the goal: Open File Explorer and go to the Documents folder] done  
+(planner)
+Stored trajectory for replay: 
+trajectories\suite\open-file-explorer-and-go-to-the-documents-folde-b67ec0b3
+done: all plan steps carried out
+Report: runs\suite\20261019-231546\report.html
+   closed new windows: ['Home - File Explorer']
+== explorer-documents: FAIL (title 'Home - File Explorer') agent said done, 100.0s
+Goal: Open File Explorer and go to This PC   (Ctrl+Alt+Q or mouse to a screen 
+corner to abort)
+Plan (4.1s): open File Explorer -> type "This PC"
+1. [open File Explorer] launch File Explorer (skill)
+   -> launched 'File Explorer' from Start
+2. [type "This PC"] type This PC (skill)
+   -> typed 7 chars
+3. final check -> False - The goal is to open File Explorer and go to This PC, 
+but the current screen shows a different window with Quick Access and other 
+settings. The task cannot be completed as the desired window is not visible.
+4. [finish the goal: Open File Explorer and go to This PC] type This PC 
+(planner)
+aborted: active window '● .env - competitor-tool - Visual Studio Code' is not 
+in the allow-list
+Report: runs\suite\20261019-231727\report.html
+   closed new windows: ['Home - File Explorer']
+== explorer-thispc: FAIL (title '● .env - competitor-tool - Visual Studio Code') agent said aborted, 91.6s
+Goal: Open Paint   (Ctrl+Alt+Q or mouse to a screen corner to abort)
+Plan (3.7s): open Paint
+1. [open Paint] launch Paint (skill)
+   -> launched 'Paint' from Start
+2. final check -> False - The Paint icon is not visible in the screenshot.
+3. [finish the goal: Open Paint] click Untitled (planner)
+   -> clicked 'Untitled' (no visible change)
+4. [finish the goal: Open Paint] click  (planner)
+   -> clicked '' (no visible change)
+5. [finish the goal: Open Paint] click  (planner)
+   -> clicked ''
+6. [finish the goal: Open Paint] click Untitled (planner)
+aborted: active window '● .env - competitor-tool - Visual Studio Code' is not 
+in the allow-list
+Report: runs\suite\20261019-231859\report.html
+   closed new windows: ['Untitled - Paint']
+== paint-open: FAIL (title '● .env - competitor-tool - Visual Studio Code') agent said aborted, 194.9s
+Goal: Open the Clock app and go to the Timer page   (Ctrl+Alt+Q or mouse to a 
+screen corner to abort)
+Plan (4.0s): open Clock -> click Timer
+1. [open Clock] launch Clock (skill)
+   -> launched 'Clock' from Start
+2. [click Timer] click Timer (skill)
+   -> clicked 'Timer'
+3. final check -> False - The goal is to open the Clock app and go to the Timer
+page, but the current screen shows the main Clock interface with no specific 
+Timer page visible.
+4. [finish the goal: Open the Clock app and go to the Timer page] done  
+(planner)
+Stored trajectory for replay: 
+trajectories\suite\open-the-clock-app-and-go-to-the-timer-page-b90a0e22
+done: all plan steps carried out
+Report: runs\suite\20261019-232215\report.html
+   closed new windows: ['Clock']
+== clock-timer: PASS (found ['Timer']) agent said done, 75.1s
+Goal: Open the Clock app and go to the Timer page   (Ctrl+Alt+Q or mouse to a 
+screen corner to abort)
+Replaying a stored run (2 actions): open Clock -> click Timer
+1. replayed: launched 'Clock' from Start
+2. replayed click 'Timer' (text)
+3. final check -> False - The goal is to open the Clock app and go to the Timer
+page, but the current screen shows the Terminal window instead of the Timer 
+page.
+4. [finish the goal: Open the Clock app and go to the Timer page] wait  
+(planner)
+   -> waited 2.0s
+5. [finish the goal: Open the Clock app and go to the Timer page] wait  
+(planner)
+   -> waited 1.0s
+6. [finish the goal: Open the Clock app and go to the Timer page] wait  
+(planner)
+   -> waited 2.0s
+7. [finish the goal: Open the Clock app and go to the Timer page] wait  
+(planner)
+   -> waited 2.0s
+8. [finish the goal: Open the Clock app and go to the Timer page] wait  
+(planner)
+   -> waited 2.0s
+9. [finish the goal: Open the Clock app and go to the Timer page] wait  
+(planner)
+   -> waited 1.0s
+10. [finish the goal: Open the Clock app and go to the Timer page] wait  
+(planner)
+   -> waited 1.0s
+11. [finish the goal: Open the Clock app and go to the Timer page] wait  
+(planner)
+   -> waited 1.0s
+12. [finish the goal: Open the Clock app and go to the Timer page] click Timer 
+(planner)
+   -> clicked 'Timer' (no visible change)
+13. [finish the goal: Open the Clock app and go to the Timer page] click Timer 
+(planner)
+   -> clicked 'Timer' (no visible change)
+14. [finish the goal: Open the Clock app and go to the Timer page] click Timer 
+(planner)
+   -> clicked 'Timer' (no visible change)
+fail: step limit reached
+Report: runs\suite\20261019-232327\report.html
+   closed new windows: ['Clock']
+   replay: PASS in 298.8s (2 replayed actions)
+Goal: Open Task Manager with the keyboard shortcut ctrl+shift+esc   (Ctrl+Alt+Q
+or mouse to a screen corner to abort)
+Plan (4.7s): open Task Manager -> type "ctrl+shift+esc"
+1. [open Task Manager] launch Task Manager (skill)
+   -> launched 'Task Manager' from Start
+2. [type "ctrl+shift+esc"] type ctrl+shift+esc (skill)
+   -> typed 14 chars
+3. final check -> False - The keyboard shortcut 'Ctrl+Shift+Esc' has not been 
+typed yet.
+4. [finish the goal: Open Task Manager with the keyboard shortcut 
+ctrl+shift+esc] type ctrl+shift+esc (planner)
+   -> typed 14 chars
+5. [finish the goal: Open Task Manager with the keyboard shortcut 
+ctrl+shift+esc] type ctrl+shift+esc (planner)
+   -> typed 14 chars
+6. [finish the goal: Open Task Manager with the keyboard shortcut 
+ctrl+shift+esc] type ctrl+shift+esc (planner)
+   -> typed 14 chars
+7. [finish the goal: Open Task Manager with the keyboard shortcut 
+ctrl+shift+esc] type ctrl+shift+esc (planner)
+   -> typed 14 chars
+8. [finish the goal: Open Task Manager with the keyboard shortcut 
+ctrl+shift+esc] type ctrl+shift+esc (planner)
+   -> typed 14 chars
+9. [finish the goal: Open Task Manager with the keyboard shortcut 
+ctrl+shift+esc] type ctrl+shift+esc (planner)
+   -> typed 14 chars
+10. [finish the goal: Open Task Manager with the keyboard shortcut 
+ctrl+shift+esc] type ctrl+shift+esc (planner)
+   -> typed 14 chars
+11. [finish the goal: Open Task Manager with the keyboard shortcut 
+ctrl+shift+esc] type ctrl+shift+esc (planner)
+   -> typed 14 chars
+12. [finish the goal: Open Task Manager with the keyboard shortcut 
+ctrl+shift+esc] type ctrl+shift+esc (planner)
+   -> typed 14 chars
+fail: step limit reached
+Report: runs\suite\20261019-232831\report.html
+   closed new windows: ['Task Manager']
+== taskmgr: PASS (found ['Processes']) agent said fail, 263.0s
+Goal: Open Task Manager with the keyboard shortcut ctrl+shift+esc   (Ctrl+Alt+Q
+or mouse to a screen corner to abort)
+Plan (4.5s): open Task Manager -> type "ctrl+shift+esc"
+1. [open Task Manager] launch Task Manager (skill)
+   -> launched 'Task Manager' from Start
+2. [type "ctrl+shift+esc"] type ctrl+shift+esc (skill)
+   -> typed 14 chars
+3. final check -> False - The Task Manager is open but not yet minimized to the
+taskbar.
+4. [finish the goal: Open Task Manager with the keyboard shortcut 
+ctrl+shift+esc] type ctrl+shift+esc (planner)
+   -> typed 14 chars
+5. [finish the goal: Open Task Manager with the keyboard shortcut 
+ctrl+shift+esc] type ctrl+shift+esc (planner)
+   -> typed 14 chars
+6. [finish the goal: Open Task Manager with the keyboard shortcut 
+ctrl+shift+esc] type ctrl+shift+esc (planner)
+   -> typed 14 chars
+7. [finish the goal: Open Task Manager with the keyboard shortcut 
+ctrl+shift+esc] type ctrl+shift+esc (planner)
+   -> typed 14 chars
+8. [finish the goal: Open Task Manager with the keyboard shortcut 
+ctrl+shift+esc] type ctrl+shift+esc (planner)
+   -> typed 14 chars
+9. [finish the goal: Open Task Manager with the keyboard shortcut 
+ctrl+shift+esc] type ctrl+shift+esc (planner)
+   -> typed 14 chars
+10. [finish the goal: Open Task Manager with the keyboard shortcut 
+ctrl+shift+esc] type ctrl+shift+esc (planner)
+   -> typed 14 chars
+11. [finish the goal: Open Task Manager with the keyboard shortcut 
+ctrl+shift+esc] type ctrl+shift+esc (planner)
+   -> typed 14 chars
+12. [finish the goal: Open Task Manager with the keyboard shortcut 
+ctrl+shift+esc] type ctrl+shift+esc (planner)
+   -> typed 14 chars
+fail: step limit reached
+Report: runs\suite\20261019-233255\report.html
+   closed new windows: ['Settings']
+   replay: PASS in 251.0s (0 replayed actions)
+Goal: In the open InPrivate Edge window, go to the website example.com   
+(Ctrl+Alt+Q or mouse to a screen corner to abort)
+Plan (5.1s): open Edge -> type "example.com" -> press enter
+1. [open Edge] launch Edge (skill)
+   -> launched 'Edge' from Start
+2. [type "example.com"] type example.com (skill)
+aborted: active window 'Search' is not in the allow-list
+Report: runs\suite\20261019-233711\report.html
+   closed new windows: ['about:blank - [InPrivate] - Microsoft\u200b Edge']
+== web-example: FAIL (none of ['Example Domain'] on screen) agent said aborted, 13.4s
+Goal: In the open InPrivate Edge window, open en.wikipedia.org/wiki/Alan_Turing
+(Ctrl+Alt+Q or mouse to a screen corner to abort)
+Plan (5.2s): open Edge -> type "en.wikipedia.org/wiki/Alan_Turing" -> press 
+enter
+1. [open Edge] launch Edge (skill)
+   -> launched 'Edge' from Start
+2. [type "en.wikipedia.org/wiki/Alan_Turing"] type 
+en.wikipedia.org/wiki/Alan_Turing (skill)
+aborted: active window 'edge edge-ss-07a - Search and 2 more pages - Personal -
+Microsoft​ Edge' is not in the allow-list
+Report: runs\suite\20261019-233729\report.html
+   closed new windows: ['about:blank - [InPrivate] - Microsoft\u200b Edge']
+== web-wikipedia: FAIL (none of ['Alan Turing'] on screen) agent said aborted, 13.7s
+Goal: In the open InPrivate Edge window, go to wikipedia.org and search for Ada
+Lovelace   (Ctrl+Alt+Q or mouse to a screen corner to abort)
+Plan (8.2s): open Edge -> type "inprivate" in the address bar -> press enter ->
+click on the Wikipedia link -> scroll down to search bar -> type "Ada Lovelace"
+-> press enter
+1. [open Edge] launch Edge (skill)
+   -> launched 'Edge' from Start
+2. [type "inprivate" in the address bar] type inprivate (skill)
+aborted: active window 'New tab - Personal - Microsoft​ Edge' is not in the 
+allow-list
+Report: runs\suite\20261019-233751\report.html
+   closed new windows: ['New tab - Personal - Microsoft\u200b Edge', 'about:blank - [InPrivate] - Microsoft\u200b Edge']
+== web-search-field: FAIL (none of ['Ada Lovelace'] on screen) agent said aborted, 16.6s

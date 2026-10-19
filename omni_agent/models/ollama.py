@@ -34,10 +34,10 @@ class OllamaModel:
             "model": self.model,
             "messages": messages,
             "stream": False,
-            # 6k context covers screenshot (~1.2k tokens after Ollama's resize) + element list + history.
+            # 8k context covers screenshot (~1.2k tokens after Ollama's resize) + element list + history.
             # Leave GPU layer placement to Ollama: forcing every layer onto a 4 GB card spills into
             # shared memory and is ~2.5x slower than its automatic CPU/GPU split.
-            "options": {"temperature": 0, "num_ctx": 6144, "repeat_penalty": 1.05},
+            "options": {"temperature": 0, "num_ctx": 8192, "repeat_penalty": 1.05},
             "keep_alive": "15m",
         }
         if json_mode:

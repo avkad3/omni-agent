@@ -39,6 +39,8 @@ class Settings:
     decompose: bool = True  # split the goal into steps first; simple steps then run without the model
     verify_end: bool = True  # one screenshot check that the goal is really complete before reporting success
 
+    max_prompt_elements: int = 120  # keeps planner prompts inside the model's context window
+
     max_steps: int = field(default_factory=lambda: int(_env("MAX_STEPS", "15")))
     action_pause: float = 0.6  # seconds to let the UI settle after an action
     type_interval: float = 0.02

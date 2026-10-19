@@ -52,6 +52,7 @@ def make_agent(tmp_path, replies, ask=lambda q: True):
     agent = Agent(s, model=ScriptedModel(replies), parser=FakeParser(), executor=ex, capture=lambda: next(frames),
                   ask=ask)
     agent.title = lambda: "Untitled - Notepad"
+    agent.focus = lambda app: True
     return agent, ex
 
 
@@ -160,3 +161,17 @@ def test_replay_skips_the_model_and_hands_over_on_lost_anchor(tmp_path):
     rec = agent3.run(goal)
     assert rec.outcome == "fail"
     assert ex3.calls == first_calls[:3]  # launch, ctrl+n, type - each exactly once
+
+
+def test_never_reports_done_without_a_passing_check(tmp_path):
+    # Regression: after a failed final check, the fallback planner said "done" and the run was reported
+    # as a success without looking again.
+    agent, _ = make_agent(tmp_path, [
+        '{"steps": ["press enter"]}',
+        '{"done": false, "reason": "settings page not open"}',
+        '{"action": "done", "summary": "I think it worked"}',
+        '{"done": false, "reason": "still not open"}',
+    ])
+    rec = agent.run("open the display settings")
+    assert rec.outcome == "fail" and "not visibly complete" in rec.summary
+    assert not (tmp_path / "traj").exists()  # failed runs are never stored for replay

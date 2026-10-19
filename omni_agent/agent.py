@@ -19,7 +19,7 @@ from rich.console import Console
 from omni_agent import screen
 from omni_agent.actions import POINTING, Action, Executor, is_risky
 from omni_agent.config import Settings
-from omni_agent.grounding import Grounder, best_text_match
+from omni_agent.grounding import Grounder, text_score
 from omni_agent.models import make_model
 from omni_agent.perception import ScreenParser, annotate, describe
 from omni_agent.perception.detector import load_detector
@@ -28,6 +28,7 @@ from omni_agent.recorder import Recorder, StepLog
 from omni_agent.replay import Trajectory, TrajectoryStore, TrajStep, crop_patch, find_patch
 from omni_agent.safety import KillSwitch, allowed, confirm, foreground_title
 from omni_agent.skills import direct_action, existing_file_in_title, make_safe_plan
+from omni_agent.windows import focus_app
 
 console = Console()
 
@@ -47,6 +48,7 @@ class Agent:
         self.capture = capture or (lambda: screen.capture(settings.monitor))
         self.ask = ask
         self.title = foreground_title  # safety checks only; planning never uses window metadata
+        self.focus = focus_app  # brings a launched app forward; Windows blocks focus stealing otherwise
         self.planner = Planner(self.model, settings.max_steps)
         self.grounder = Grounder(self.model, (settings.model_width, settings.model_height))
         self.store = TrajectoryStore(settings.trajectories_dir) if settings.replay else None
@@ -71,7 +73,7 @@ class Agent:
         executed: list[tuple[TrajStep, Image.Image | None]] = []  # becomes the stored trajectory
         idx = 0
         direct_failed: set[int] = set()  # plan steps whose direct execution could not ground
-        verified = False
+        checks = 0
         self.kill.start()
         outcome, summary = "fail", "step limit reached"
         try:
@@ -100,21 +102,28 @@ class Agent:
                     timings["detect_icons"] = time.perf_counter() - t
                 view = frame.model_view(s.model_width, s.model_height)
                 annotated = annotate(view, elements, scale=s.model_width / frame.size[0])
-                elements_text = describe(elements, frame.size)
+                elements_text = describe(elements, frame.size, limit=s.max_prompt_elements)
 
                 if idx >= len(plan):  # every step ran: confirm visually before declaring success
-                    if not s.verify_end or verified:
-                        outcome, summary = "done", "all plan steps carried out"
+                    if not s.verify_end:
+                        outcome, summary = "done", "all plan steps carried out (not verified)"
+                        break
+                    if checks >= 2:
+                        outcome, summary = "fail", "goal still not visibly complete after a second attempt"
                         break
                     t = time.perf_counter()
-                    ok, reason = self.planner.check_done(goal, annotated, elements_text, history)
+                    ok, reason = self.planner.check_done(goal, annotated, describe(
+                        [e for e in elements if e.kind == "text"], frame.size, limit=60), history)
                     timings["verify"] = time.perf_counter() - t
-                    verified = True
+                    checks += 1
                     rec.add(StepLog(step, {"action": "check", "thought": reason}, f"goal complete: {ok}",
                                     timings=timings, subtask="final check"), annotated, frame.size)
                     console.print(f"[cyan]{step}.[/] final check -> {ok} [dim]- {reason}[/]")
                     if ok:
                         outcome, summary = "done", reason
+                        break
+                    if checks >= 2:
+                        outcome, summary = "fail", f"goal still not visibly complete after a second attempt: {reason}"
                         break
                     plan.append(f"finish the goal: {goal}")  # hand the rest to free planning
                     continue
@@ -214,14 +223,17 @@ class Agent:
 
     def _relocate(self, goal: str, ts: TrajStep, frame: screen.Frame) -> tuple[float, float, str] | None:
         """Find a stored click target on the current screen: by its text, else by its image patch."""
+        W, H = frame.size
         if ts.anchor_text:
             elements = self.parser.parse(frame.image, icons=False)
-            match, score = best_text_match(ts.anchor_text, elements)
-            if match is not None and score >= 0.9:
-                return (*match.center, "text")
+            hits = [e for e in elements if e.kind == "text" and text_score(ts.anchor_text, e.text) >= 0.9]
+            if hits:
+                if ts.rel_xy is not None:  # the same word can appear in several windows: take the closest
+                    ox, oy = ts.rel_xy[0] * W, ts.rel_xy[1] * H
+                    hits.sort(key=lambda e: (e.center[0] - ox) ** 2 + (e.center[1] - oy) ** 2)
+                return (*hits[0].center, "text")
         patch = self.store.patch(goal, ts) if self.store is not None else None
         if patch is not None and ts.rel_xy is not None:
-            W, H = frame.size
             hit = find_patch(frame.image, patch, (ts.rel_xy[0] * W, ts.rel_xy[1] * H))
             if hit is not None and hit[2] >= self.s.replay_threshold:
                 return hit[0], hit[1], f"image match {hit[2]:.2f}"
@@ -316,7 +328,8 @@ class Agent:
         if a.action == "launch":
             ex.launch(a.text)
             time.sleep(1.5)
-            return f"launched '{a.text}' from Start", "", None, ""
+            front = self.s.dry_run or self.focus(a.text)
+            return f"launched '{a.text}' from Start" + ("" if front else " (window not in front)"), "", None, ""
         if a.action == "wait":
             time.sleep(min(a.seconds, 10))
             return f"waited {a.seconds}s", "", None, ""
