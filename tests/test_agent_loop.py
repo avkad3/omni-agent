@@ -46,7 +46,7 @@ class RecordingExecutor:
 
 
 def make_agent(tmp_path, replies, ask=lambda q: True):
-    s = Settings(runs_dir=tmp_path, action_pause=0, max_steps=6)
+    s = Settings(runs_dir=tmp_path, action_pause=0, max_steps=6, trajectories_dir=tmp_path / "traj")
     frames = iter(lambda: screen.Frame(Image.new("RGB", (1920, 1080), "white"), left=1920, top=0), None)
     ex = RecordingExecutor()
     agent = Agent(s, model=ScriptedModel(replies), parser=FakeParser(), executor=ex, capture=lambda: next(frames),
@@ -134,3 +134,29 @@ def test_editor_plan_starts_fresh_document(tmp_path):
     agent, ex = make_agent(tmp_path, ['{"steps": ["open Notepad", "type \\"hi\\""]}', '{"done": true}'])
     agent.run("open notepad and write hi")
     assert ex.calls == [("launch", "Notepad"), ("hotkey", ("ctrl", "n")), ("type", "hi")]
+
+
+def test_replay_skips_the_model_and_hands_over_on_lost_anchor(tmp_path):
+    goal = "type hello in notepad and save"
+    agent, ex = make_agent(tmp_path, [
+        '{"steps": ["open notepad", "type \\"hello\\"", "click Save"]}',
+        '{"done": true, "reason": "ok"}',
+    ])
+    assert agent.run(goal).outcome == "done"
+    first_calls = list(ex.calls)
+
+    # Same goal again: replayed from the stored trajectory. Only the final check calls the model.
+    agent2, ex2 = make_agent(tmp_path, ['{"done": true, "reason": "ok"}'])
+    rec = agent2.run(goal)
+    assert rec.outcome == "done" and ex2.calls == first_calls
+    # launch, ctrl+n, wait, type, click: all replayed
+    assert [st.source for st in rec.steps[:5]] == ["replay"] * 5
+    assert "(text)" in rec.steps[4].result  # the Save click was re-found by its OCR text
+
+    # The "Save" text is gone and the stored image patch is blank: replay stops at that plan step
+    # and the agent takes over there, without re-typing what was already typed.
+    agent3, ex3 = make_agent(tmp_path, ['{"x": -1, "y": -1}', '{"action": "fail", "summary": "no Save button"}'])
+    agent3.parser = type("P", (), {"parse": lambda self, i, icons=True: [], "last_timing": {}})()
+    rec = agent3.run(goal)
+    assert rec.outcome == "fail"
+    assert ex3.calls == first_calls[:3]  # launch, ctrl+n, type - each exactly once

@@ -29,6 +29,10 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--allow", action="append", default=[], help="only act while this window title is active")
     r.add_argument("--delay", type=float, default=3.0, help="seconds before the first step")
     r.add_argument("--open", action="store_true", help="open the HTML report when finished")
+    r.add_argument("--no-replay", action="store_true", help="plan from scratch even if this goal succeeded before")
+
+    f = sub.add_parser("forget", help="delete the stored trajectory for a goal")
+    f.add_argument("goal")
 
     s = sub.add_parser("see", help="show what the agent perceives on the current screen")
     s.add_argument("--monitor", type=int, default=1)
@@ -37,6 +41,18 @@ def main(argv: list[str] | None = None) -> int:
     a = p.parse_args(argv)
     if a.cmd == "see":
         return _see(a.monitor, a.out)
+    if a.cmd == "forget":
+        import shutil
+
+        from omni_agent.replay import TrajectoryStore
+
+        path = TrajectoryStore(Settings().trajectories_dir).path(a.goal)
+        if path.exists():
+            shutil.rmtree(path)
+            print(f"deleted {path}")
+        else:
+            print("no stored trajectory for that goal")
+        return 0
 
     settings = Settings()
     if a.backend:
@@ -55,6 +71,7 @@ def main(argv: list[str] | None = None) -> int:
     settings.dry_run = a.dry_run
     settings.confirm_risky = not a.no_confirm
     settings.allowed_apps = a.allow
+    settings.replay = not a.no_replay
 
     import time
 

@@ -33,6 +33,9 @@ class Settings:
     min_elements_for_text: int = 8  # fewer OCR elements than this (games, canvases) -> show the image
 
     icons: bool = True  # use the OmniParser icon detector when its model file is present
+    replay: bool = True  # re-run goals that already succeeded from their stored trajectory
+    trajectories_dir: Path = field(default_factory=lambda: Path(_env("TRAJECTORIES_DIR", "trajectories")))
+    replay_threshold: float = 0.8  # minimum image-match score to trust a stored click anchor
     decompose: bool = True  # split the goal into steps first; simple steps then run without the model
     verify_end: bool = True  # one screenshot check that the goal is really complete before reporting success
 

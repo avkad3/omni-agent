@@ -3,6 +3,9 @@
 Hierarchical: the goal is split once into short steps. Steps that map straight onto an action
 (open / type / press / click <named text>) run without consulting the model; the model is asked
 only for steps that need judgment, and sees the screenshot only when the OCR text is not enough.
+
+A goal that already succeeded is replayed from its stored trajectory without any model call, and
+handed back to this loop at the first step whose target cannot be re-found.
 """
 
 from __future__ import annotations
@@ -10,21 +13,27 @@ from __future__ import annotations
 import time
 from collections.abc import Callable
 
+from PIL import Image
 from rich.console import Console
 
 from omni_agent import screen
 from omni_agent.actions import POINTING, Action, Executor, is_risky
 from omni_agent.config import Settings
-from omni_agent.grounding import Grounder
+from omni_agent.grounding import Grounder, best_text_match
 from omni_agent.models import make_model
 from omni_agent.perception import ScreenParser, annotate, describe
 from omni_agent.perception.detector import load_detector
 from omni_agent.planner import Planner, StepRecord
 from omni_agent.recorder import Recorder, StepLog
+from omni_agent.replay import Trajectory, TrajectoryStore, TrajStep, crop_patch, find_patch
 from omni_agent.safety import KillSwitch, allowed, confirm, foreground_title
 from omni_agent.skills import direct_action, existing_file_in_title, make_safe_plan
 
 console = Console()
+
+
+class Abort(Exception):
+    """Stop the run with outcome 'aborted' and this message."""
 
 
 class Agent:
@@ -40,27 +49,41 @@ class Agent:
         self.title = foreground_title  # safety checks only; planning never uses window metadata
         self.planner = Planner(self.model, settings.max_steps)
         self.grounder = Grounder(self.model, (settings.model_width, settings.model_height))
+        self.store = TrajectoryStore(settings.trajectories_dir) if settings.replay else None
         self.kill = KillSwitch()
+
+    # ------------------------------------------------------------------ main loop
 
     def run(self, goal: str) -> Recorder:
         s = self.s
         console.print(f"[bold]Goal:[/] {goal}   [dim](Ctrl+Alt+Q or mouse to a screen corner to abort)[/]")
+        traj = self.store.load(goal) if self.store is not None and not s.dry_run else None
         t = time.perf_counter()
-        plan = make_safe_plan(self.planner.decompose(goal)) if s.decompose else [goal]
-        console.print(f"[bold]Plan[/] ({time.perf_counter() - t:.1f}s): " + " -> ".join(plan))
+        if traj is not None:
+            plan = list(traj.plan)
+            console.print(f"[bold]Replaying[/] a stored run ({len(traj.steps)} actions): " + " -> ".join(plan))
+        else:
+            plan = make_safe_plan(self.planner.decompose(goal)) if s.decompose else [goal]
+            console.print(f"[bold]Plan[/] ({time.perf_counter() - t:.1f}s): " + " -> ".join(plan))
         rec = Recorder(s.runs_dir, goal, {"model": getattr(self.model, "name", "?"), "dry_run": s.dry_run,
-                                          "plan": plan})
+                                          "plan": plan, "replay": traj is not None})
         history: list[StepRecord] = []
+        executed: list[tuple[TrajStep, Image.Image | None]] = []  # becomes the stored trajectory
         idx = 0
         direct_failed: set[int] = set()  # plan steps whose direct execution could not ground
         verified = False
         self.kill.start()
         outcome, summary = "fail", "step limit reached"
         try:
-            for step in range(1, s.max_steps + 1):
+            if traj is not None:
+                idx = self._replay(traj, goal, rec, history, executed)
+                if idx < len(plan):
+                    console.print(f"[yellow]Replay lost its anchor at plan step {idx + 1}; handing over to the "
+                                  "agent[/]")
+            first = len(rec.steps) + 1
+            for step in range(first, first + s.max_steps):
                 if self.kill.triggered:
-                    outcome, summary = "aborted", "kill switch pressed"
-                    break
+                    raise Abort("kill switch pressed")
                 timings: dict[str, float] = {}
 
                 t = time.perf_counter()
@@ -117,46 +140,130 @@ class Agent:
                     outcome, summary = "fail", action.summary
                     break
 
-                # Launching goes through the Start menu, so only guard actions that touch the active window.
-                guarded = action.action in POINTING | {"type", "hotkey", "scroll"}
-                if guarded and s.allowed_apps and not allowed(foreground_title(), s.allowed_apps):
-                    outcome, summary = "aborted", f"active window '{foreground_title()}' is not in the allow-list"
-                    break
-
-                if action.action == "type" and not s.dry_run:
-                    existing = existing_file_in_title(self.title(), goal)
-                    if existing and not self.ask(f"About to type into the existing file '{existing}', "
-                                                 "which the goal does not mention."):
-                        outcome, summary = "aborted", f"refused to type into existing file '{existing}'"
-                        break
-
-                result, method, click = self._act(action, frame, elements, timings)
-                change = None
-                if action.action != "wait" and not s.dry_run:
-                    time.sleep(s.action_pause)
-                    change = screen.change_ratio(frame, self.capture())
-                    if change < 0.002 and action.action != "type":
-                        result += " (no visible change)"
+                self._guard(action, goal)
+                result, method, click, anchor = self._act(action, frame, elements, timings)
+                result = self._settle(action, frame, result)
                 history.append(StepRecord(action, result))
-                rec.add(StepLog(step, action.model_dump(), result, method, click, change, timings,
+                rec.add(StepLog(step, action.model_dump(), result, method, click, self._last_change, timings,
                                 raw=self.planner.last_raw if source == "planner" else "", subtask=current,
                                 source=source), annotated, frame.size)
                 console.print(f"   [green]->[/] {result}")
                 if result.startswith("aborted"):
-                    outcome, summary = "aborted", result
-                    break
+                    raise Abort(result)
 
                 if result.startswith("could not locate"):
                     direct_failed.add(idx)  # retry this step with the model looking at the screen
-                elif source == "skill" or direct_action(current) is not None:
+                    continue
+                executed.append(self._traj_step(idx, action, frame, click, anchor))
+                if source == "skill" or direct_action(current) is not None:
                     idx += 1  # one-action steps are complete once the action ran
+        except Abort as e:
+            outcome, summary = "aborted", str(e)
         except Exception as e:  # pyautogui.FailSafeException lands here too
             outcome, summary = ("aborted", "fail-safe corner") if "FailSafe" in type(e).__name__ else ("error", repr(e))
         finally:
             self.kill.stop()
+        if outcome == "done" and self.store is not None and not s.dry_run and executed:
+            saved = self.store.save(goal, plan[: len(plan) - plan.count(f"finish the goal: {goal}")], executed)
+            console.print(f"[dim]Stored trajectory for replay: {saved}[/]")
         page = rec.finish(outcome, summary)
         console.print(f"[bold]{outcome}[/]: {summary}\nReport: {page}")
         return rec
+
+    # ------------------------------------------------------------------ replay
+
+    def _replay(self, traj: Trajectory, goal: str, rec: Recorder, history: list[StepRecord],
+                executed: list[tuple[TrajStep, Image.Image | None]]) -> int:
+        """Run stored actions. Returns the plan index to continue from (len(plan) if everything replayed)."""
+        for ts in traj.steps:
+            if self.kill.triggered:
+                raise Abort("kill switch pressed")
+            timings: dict[str, float] = {}
+            t = time.perf_counter()
+            frame = self.capture()
+            a = Action.model_validate(ts.action)
+            click = None
+            if a.action in POINTING:
+                found = self._relocate(goal, ts, frame)
+                timings["relocate"] = time.perf_counter() - t
+                if found is None:
+                    return ts.plan_idx
+                x, y, how = found
+                self._guard(a, goal)
+                label = ts.anchor_text or a.target
+                if self.s.confirm_risky and is_risky(a, label) and not self.ask(f"About to {a.action} '{label}'."):
+                    raise Abort("user declined risky action")
+                self.executor.point(a.action, *frame.to_screen(x, y))
+                result, click = f"replayed {a.action.replace('_', ' ')} '{label}' ({how})", (x, y)
+            else:
+                self._guard(a, goal)
+                result, _, _, _ = self._act(a, frame, [], timings)
+                result = "replayed: " + result
+            result = self._settle(a, frame, result)
+            history.append(StepRecord(a, result))
+            step = len(rec.steps) + 1
+            view = frame.model_view(self.s.model_width, self.s.model_height)
+            rec.add(StepLog(step, a.model_dump(), result, "replay", click, self._last_change, timings,
+                            subtask=traj.plan[ts.plan_idx] if ts.plan_idx < len(traj.plan) else "",
+                            source="replay"), view, frame.size)
+            console.print(f"[cyan]{step}.[/] {result}")
+            if result.startswith("aborted"):
+                raise Abort(result)
+            executed.append(self._traj_step(ts.plan_idx, a, frame, click, ts.anchor_text))
+        return len(traj.plan)
+
+    def _relocate(self, goal: str, ts: TrajStep, frame: screen.Frame) -> tuple[float, float, str] | None:
+        """Find a stored click target on the current screen: by its text, else by its image patch."""
+        if ts.anchor_text:
+            elements = self.parser.parse(frame.image, icons=False)
+            match, score = best_text_match(ts.anchor_text, elements)
+            if match is not None and score >= 0.9:
+                return (*match.center, "text")
+        patch = self.store.patch(goal, ts) if self.store is not None else None
+        if patch is not None and ts.rel_xy is not None:
+            W, H = frame.size
+            hit = find_patch(frame.image, patch, (ts.rel_xy[0] * W, ts.rel_xy[1] * H))
+            if hit is not None and hit[2] >= self.s.replay_threshold:
+                return hit[0], hit[1], f"image match {hit[2]:.2f}"
+        return None
+
+    @staticmethod
+    def _traj_step(plan_idx: int, a: Action, frame: screen.Frame, click, anchor: str
+                   ) -> tuple[TrajStep, Image.Image | None]:
+        if click is None:
+            return TrajStep(plan_idx, a.model_dump()), None
+        W, H = frame.size
+        return (TrajStep(plan_idx, a.model_dump(), anchor_text=anchor, rel_xy=(click[0] / W, click[1] / H)),
+                crop_patch(frame.image, *click))
+
+    # ------------------------------------------------------------------ helpers
+
+    _last_change: float | None = None
+
+    def _guard(self, action: Action, goal: str) -> None:
+        """Safety checks that apply to every action, planned or replayed."""
+        s = self.s
+        # Launching goes through the Start menu, so only guard actions that touch the active window.
+        if action.action in POINTING | {"type", "hotkey", "scroll"} and s.allowed_apps:
+            title = self.title()
+            if not allowed(title, s.allowed_apps):
+                raise Abort(f"active window '{title}' is not in the allow-list")
+        if action.action == "type" and not s.dry_run:
+            existing = existing_file_in_title(self.title(), goal)
+            if existing and not self.ask(f"About to type into the existing file '{existing}', "
+                                         "which the goal does not mention."):
+                raise Abort(f"refused to type into existing file '{existing}'")
+
+    def _settle(self, action: Action, before: screen.Frame, result: str) -> str:
+        """Wait for the UI, then note whether the action visibly changed the screen."""
+        self._last_change = None
+        if action.action == "wait" or self.s.dry_run or result.startswith(("could not", "aborted")):
+            return result
+        time.sleep(self.s.action_pause)
+        self._last_change = screen.change_ratio(before, self.capture())
+        if self._last_change < 0.002 and action.action != "type":
+            result += " (no visible change)"
+        return result
 
     def _needs_image(self, elements, history: list[StepRecord]) -> bool:
         """Adaptive perception: send the screenshot only when the OCR element list is not enough."""
@@ -173,7 +280,9 @@ class Agent:
                 return True  # the planner asked to see the screen
         return False
 
-    def _act(self, a: Action, frame: screen.Frame, elements, timings) -> tuple[str, str, tuple[float, float] | None]:
+    def _act(self, a: Action, frame: screen.Frame, elements, timings
+             ) -> tuple[str, str, tuple[float, float] | None, str]:
+        """Returns (result, grounding method, click point, anchor text for replay)."""
         ex = self.executor
         if a.action in POINTING:
             t = time.perf_counter()
@@ -184,30 +293,31 @@ class Agent:
                 g = self.grounder.ground(frame.image, elements, a.target, a.element_id)
             timings["ground"] = time.perf_counter() - t
             if g is None:
-                return f"could not locate '{a.target}' on screen", "", None
-            label = g.element.text if g.element is not None else a.target
+                return f"could not locate '{a.target}' on screen", "", None, ""
+            label = g.element.text if g.element is not None and g.element.text else a.target
+            anchor = g.element.text if g.element is not None and g.element.kind == "text" else ""
             if self.s.confirm_risky and is_risky(a, label) and not self.ask(f"About to {a.action} '{label}'."):
-                return "aborted: user declined risky action", g.method, (g.x, g.y)
+                return "aborted: user declined risky action", g.method, (g.x, g.y), ""
             ex.point(a.action, *frame.to_screen(g.x, g.y))
-            return f"{a.action.replace('_', ' ')}ed '{label}'", g.method, (g.x, g.y)
+            return f"{a.action.replace('_', ' ')}ed '{label}'", g.method, (g.x, g.y), anchor
         if a.action == "type":
             if self.s.confirm_risky and is_risky(a) and not self.ask(f"About to type '{a.text}'."):
-                return "aborted: user declined risky action", "", None
+                return "aborted: user declined risky action", "", None, ""
             ex.type_text(a.text)
-            return f"typed {len(a.text)} chars", "", None
+            return f"typed {len(a.text)} chars", "", None, ""
         if a.action == "hotkey":
             if self.s.confirm_risky and is_risky(a) and not self.ask(f"About to press {'+'.join(a.keys)}."):
-                return "aborted: user declined risky action", "", None
+                return "aborted: user declined risky action", "", None, ""
             ex.hotkey(a.keys)
-            return f"pressed {'+'.join(a.keys)}", "", None
+            return f"pressed {'+'.join(a.keys)}", "", None, ""
         if a.action == "scroll":
             ex.scroll(a.direction, a.amount, frame.to_screen(frame.size[0] / 2, frame.size[1] / 2))
-            return f"scrolled {a.direction}", "", None
+            return f"scrolled {a.direction}", "", None, ""
         if a.action == "launch":
             ex.launch(a.text)
             time.sleep(1.5)
-            return f"launched '{a.text}' from Start", "", None
+            return f"launched '{a.text}' from Start", "", None, ""
         if a.action == "wait":
             time.sleep(min(a.seconds, 10))
-            return f"waited {a.seconds}s", "", None
-        return f"unsupported action {a.action}", "", None
+            return f"waited {a.seconds}s", "", None, ""
+        return f"unsupported action {a.action}", "", None, ""
