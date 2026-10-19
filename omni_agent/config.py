@@ -32,6 +32,7 @@ class Settings:
     vision: str = field(default_factory=lambda: _env("VISION", "auto"))
     min_elements_for_text: int = 8  # fewer OCR elements than this (games, canvases) -> show the image
 
+    icons: bool = True  # use the OmniParser icon detector when its model file is present
     decompose: bool = True  # split the goal into steps first; simple steps then run without the model
     verify_end: bool = True  # one screenshot check that the goal is really complete before reporting success
 

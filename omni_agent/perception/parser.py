@@ -34,11 +34,12 @@ class ScreenParser:
             self._ocr = make_ocr(self.ocr_pref)
         return self._ocr
 
-    def parse(self, image: Image.Image) -> list[Element]:
+    def parse(self, image: Image.Image, icons: bool = True) -> list[Element]:
+        """icons=False skips the detector (~2 s on CPU); most steps are grounded by text alone."""
         t0 = time.perf_counter()
         elements = self.ocr(image)
         t1 = time.perf_counter()
-        if self.detector is not None:
+        if icons and self.detector is not None:
             for box, score in self.detector.detect(image):
                 # An icon box that mostly overlaps a text box is the same control; keep the text one.
                 if any(iou(box, e.box) > 0.5 for e in elements):

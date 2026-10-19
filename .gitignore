@@ -9,3 +9,5 @@ scratch/
 see.png
 *.onnx
 *.pt
+data/
+models/

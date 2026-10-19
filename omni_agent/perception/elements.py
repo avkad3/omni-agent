@@ -66,7 +66,7 @@ def annotate(image: Image.Image, elements: list[Element], scale: float = 1.0) ->
     return out
 
 
-def describe(elements: list[Element], frame_size: tuple[int, int], limit: int = 120) -> str:
+def describe(elements: list[Element], frame_size: tuple[int, int], limit: int = 200) -> str:
     """Compact text list for the prompt. Positions are given as screen fractions so the list
     stays meaningful whatever resolution the model sees."""
     w, h = frame_size

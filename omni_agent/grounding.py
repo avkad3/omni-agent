@@ -112,15 +112,34 @@ def parse_point(raw: str, w: int, h: int) -> tuple[float, float] | None:
     return pt
 
 
+def snap(x: float, y: float, elements: list[Element], radius: float = 24) -> Element | None:
+    """The element the model was aiming at: the smallest box containing the point, else the closest
+    box edge within `radius` px. Boxes cover whole controls, so their centre is a safer click than
+    the model's raw guess."""
+    inside = [e for e in elements if e.box[0] <= x <= e.box[2] and e.box[1] <= y <= e.box[3]]
+    if inside:
+        return min(inside, key=lambda e: e.area)
+    best, best_d = None, radius
+    for e in elements:
+        dx = max(e.box[0] - x, 0, x - e.box[2])
+        dy = max(e.box[1] - y, 0, y - e.box[3])
+        d = (dx * dx + dy * dy) ** 0.5
+        if d < best_d:
+            best, best_d = e, d
+    return best
+
+
 class Grounder:
-    def __init__(self, model, model_size: tuple[int, int], text_threshold: float = 0.82, zoom: bool = True):
+    def __init__(self, model, model_size: tuple[int, int], text_threshold: float = 0.82, zoom: bool = True,
+                 snap_radius: float = 24):
         self.model = model
         self.mw, self.mh = model_size
         self.text_threshold = text_threshold
         self.zoom = zoom
+        self.snap_radius = snap_radius  # px at 1080p, scaled with the screen width
 
     def ground(self, image: Image.Image, elements: list[Element], target: str,
-               element_id: int | None = None) -> Grounding | None:
+               element_id: int | None = None, use_model: bool = True) -> Grounding | None:
         by_id = {e.id: e for e in elements}
         match, score = best_text_match(target, elements)
         picked = by_id.get(element_id) if element_id is not None else None
@@ -134,11 +153,11 @@ class Grounder:
             return Grounding(*picked.center, "mark", picked)
         if match is not None and score >= self.text_threshold:
             return Grounding(*match.center, "text", match, f"score {score:.2f}")
-        if self.model is None or not target:
+        if not use_model or self.model is None or not target:
             return None
-        return self.point(image, target)
+        return self.point(image, target, elements)
 
-    def point(self, image: Image.Image, target: str) -> Grounding | None:
+    def point(self, image: Image.Image, target: str, elements: list[Element] | None = None) -> Grounding | None:
         fw, fh = image.size
         view = image.resize((self.mw, self.mh), Image.LANCZOS)
         raw = self.model.generate(POINT_PROMPT.format(w=self.mw, h=self.mh, target=target), [view])
@@ -146,6 +165,9 @@ class Grounder:
         if pt is None:
             return None
         x, y = pt[0] * fw / self.mw, pt[1] * fh / self.mh
+        snapped = snap(x, y, elements or [], radius=self.snap_radius * fw / 1920)
+        if snapped is not None:  # a detected box under/near the guess: click its centre, skip the zoom call
+            return Grounding(*snapped.center, "point+snap", snapped)
         if not self.zoom:
             return Grounding(x, y, "point", detail=raw[:120])
         refined = self._zoom(image, target, x, y)

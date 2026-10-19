@@ -87,3 +87,21 @@ def test_split_line_separates_menu_words():
              ("as", (334, 16, 348, 30))]
     out = split_line(words)
     assert [e.text for e in out] == ["File", "Edit", "Save as"]
+
+
+def test_snap_prefers_containing_then_nearest():
+    from omni_agent.grounding import snap
+
+    boxes = [Element(0, "icon", (100, 100, 140, 140)), Element(1, "icon", (90, 90, 300, 300)),
+             Element(2, "icon", (500, 500, 540, 540))]
+    assert snap(120, 120, boxes).id == 0  # smallest box containing the point
+    assert snap(530, 560, boxes).id == 2  # 20 px below box 2
+    assert snap(800, 800, boxes) is None
+
+
+def test_point_snaps_to_icon_without_zoom():
+    # Model guesses (60, 30) in 1288x728 space = (89, 45) on 1920x1080, inside the hamburger icon box.
+    m = FakeModel(['{"x": 60, "y": 30}'])
+    icons = [Element(0, "icon", (75, 30, 105, 60))]
+    g = Grounder(m, (1288, 728)).ground(Image.new("RGB", (1920, 1080)), icons, "menu button")
+    assert g.method == "point+snap" and (g.x, g.y) == (90, 45) and m.calls == 1

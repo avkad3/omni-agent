@@ -18,6 +18,7 @@ from omni_agent.config import Settings
 from omni_agent.grounding import Grounder
 from omni_agent.models import make_model
 from omni_agent.perception import ScreenParser, annotate, describe
+from omni_agent.perception.detector import load_detector
 from omni_agent.planner import Planner, StepRecord
 from omni_agent.recorder import Recorder, StepLog
 from omni_agent.safety import KillSwitch, allowed, confirm, foreground_title
@@ -32,7 +33,7 @@ class Agent:
                  ask: Callable[[str], bool] = confirm):
         self.s = settings
         self.model = model or make_model(settings)
-        self.parser = parser or ScreenParser()
+        self.parser = parser or ScreenParser(detector=load_detector() if settings.icons else None)
         self.executor = executor or Executor(settings.type_interval, dry_run=settings.dry_run)
         self.capture = capture or (lambda: screen.capture(settings.monitor))
         self.ask = ask
@@ -64,8 +65,16 @@ class Agent:
 
                 t = time.perf_counter()
                 frame = self.capture()
-                elements = self.parser.parse(frame.image)
+                elements = self.parser.parse(frame.image, icons=False)
                 timings["perceive"] = time.perf_counter() - t
+                current = plan[idx] if idx < len(plan) else ""
+                action = None if idx in direct_failed or idx >= len(plan) else direct_action(current)
+                look = idx >= len(plan) or (action is None and (idx in direct_failed
+                                                                 or self._needs_image(elements, history)))
+                if look:  # the model will see the screen: number the icons too
+                    t = time.perf_counter()
+                    elements = self.parser.parse(frame.image, icons=True)
+                    timings["detect_icons"] = time.perf_counter() - t
                 view = frame.model_view(s.model_width, s.model_height)
                 annotated = annotate(view, elements, scale=s.model_width / frame.size[0])
                 elements_text = describe(elements, frame.size)
@@ -87,12 +96,9 @@ class Agent:
                     plan.append(f"finish the goal: {goal}")  # hand the rest to free planning
                     continue
 
-                current = plan[idx]
-                action = None if idx in direct_failed else direct_action(current)
                 source = "skill"
                 if action is None:
                     source = "planner"
-                    look = idx in direct_failed or self._needs_image(elements, history)
                     t = time.perf_counter()
                     action = self.planner.next_action(goal, annotated if look else None, elements_text, history,
                                                       step, plan, current)
@@ -171,7 +177,11 @@ class Agent:
         ex = self.executor
         if a.action in POINTING:
             t = time.perf_counter()
-            g = self.grounder.ground(frame.image, elements, a.target, a.element_id)
+            g = self.grounder.ground(frame.image, elements, a.target, a.element_id, use_model=False)
+            if g is None:  # no text match: add detected icons, then let the model point and snap
+                if not any(e.kind == "icon" for e in elements):
+                    elements = self.parser.parse(frame.image, icons=True)
+                g = self.grounder.ground(frame.image, elements, a.target, a.element_id)
             timings["ground"] = time.perf_counter() - t
             if g is None:
                 return f"could not locate '{a.target}' on screen", "", None

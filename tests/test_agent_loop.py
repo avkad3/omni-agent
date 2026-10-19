@@ -21,7 +21,7 @@ class ScriptedModel:
 class FakeParser:
     last_timing = {}
 
-    def parse(self, image):
+    def parse(self, image, icons=True):
         return [Element(0, "text", (100, 100, 200, 130), "Notepad"), Element(1, "text", (500, 600, 560, 630), "Save")]
 
 
@@ -95,8 +95,8 @@ def test_failed_final_check_falls_back_to_planning(tmp_path):
 
 def test_risky_action_declined(tmp_path):
     agent, ex = make_agent(tmp_path, ['{"steps": ["click Delete everything"]}'], ask=lambda q: False)
-    agent.parser = type("P", (), {"parse": lambda self, i: [Element(0, "text", (0, 0, 50, 20), "Delete everything")],
-                                  "last_timing": {}})()
+    delete = [Element(0, "text", (0, 0, 50, 20), "Delete everything")]
+    agent.parser = type("P", (), {"parse": lambda self, i, icons=True: delete, "last_timing": {}})()
     rec = agent.run("x")
     assert rec.outcome == "aborted" and ex.calls == []
 
