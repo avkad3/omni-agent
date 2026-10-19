@@ -51,26 +51,50 @@ def make_agent(tmp_path, replies, ask=lambda q: True):
     ex = RecordingExecutor()
     agent = Agent(s, model=ScriptedModel(replies), parser=FakeParser(), executor=ex, capture=lambda: next(frames),
                   ask=ask)
+    agent.title = lambda: "Untitled - Notepad"
     return agent, ex
 
 
 def test_full_loop(tmp_path):
     agent, ex = make_agent(tmp_path, [
-        '{"thought": "open it", "action": "launch", "text": "notepad"}',
-        '{"thought": "type", "action": "type", "text": "hello"}',
-        '{"thought": "save", "action": "click", "element_id": 0, "target": "Save"}',  # wrong id, text wins
-        '{"action": "done", "summary": "saved"}',
+        '{"steps": ["open notepad", "type \\"hello\\"", "click Save"]}',  # decomposition
+        '{"done": true, "reason": "text typed and saved"}',  # final visual check
     ])
     rec = agent.run("type hello in notepad and save")
-    assert rec.outcome == "done"
-    # Second monitor offset (left=1920) must be added to the click.
-    assert ex.calls == [("launch", "notepad"), ("type", "hello"), ("click", 2450, 615)]
-    assert (rec.dir / "report.html").exists() and len(list(rec.dir.glob("step_*.jpg"))) == 4
+    assert rec.outcome == "done", rec.summary
+    # Every plan step ran as a direct skill (no planner calls); the click matched OCR text "Save",
+    # and the second monitor's offset (left=1920) was added to it.
+    # Opening an editor and then typing inserts ctrl+n so the text lands in a fresh document.
+    assert ex.calls == [("launch", "notepad"), ("hotkey", ("ctrl", "n")), ("type", "hello"), ("click", 2450, 615)]
+    assert [s.source for s in rec.steps[:5]] == ["skill"] * 5
+    assert (rec.dir / "report.html").exists() and len(list(rec.dir.glob("step_*.jpg"))) == 6
     assert "no visible change" in rec.steps[0].result  # identical frames
 
 
+def test_planner_handles_open_ended_steps(tmp_path):
+    agent, ex = make_agent(tmp_path, [
+        '{"steps": ["make the text bigger"]}',
+        '{"thought": "zoom", "action": "hotkey", "keys": ["ctrl", "plus"]}',
+        '{"action": "done", "summary": "bigger"}',
+        '{"done": true, "reason": "ok"}',
+    ])
+    rec = agent.run("make the text bigger")
+    assert rec.outcome == "done" and ex.calls == [("hotkey", ("ctrl", "plus"))]
+    assert rec.steps[0].source == "planner"
+
+
+def test_failed_final_check_falls_back_to_planning(tmp_path):
+    agent, ex = make_agent(tmp_path, [
+        '{"steps": ["press enter"]}',
+        '{"done": false, "reason": "nothing happened"}',
+        '{"action": "fail", "summary": "cannot"}',
+    ])
+    rec = agent.run("x")
+    assert rec.outcome == "fail" and ex.calls == [("hotkey", ("enter",))]
+
+
 def test_risky_action_declined(tmp_path):
-    agent, ex = make_agent(tmp_path, ['{"action": "click", "target": "Delete everything"}'], ask=lambda q: False)
+    agent, ex = make_agent(tmp_path, ['{"steps": ["click Delete everything"]}'], ask=lambda q: False)
     agent.parser = type("P", (), {"parse": lambda self, i: [Element(0, "text", (0, 0, 50, 20), "Delete everything")],
                                   "last_timing": {}})()
     rec = agent.run("x")
@@ -78,5 +102,35 @@ def test_risky_action_declined(tmp_path):
 
 
 def test_invalid_replies_end_in_fail(tmp_path):
-    agent, _ = make_agent(tmp_path, ["nonsense", "still nonsense"])
+    agent, _ = make_agent(tmp_path, ['{"steps": ["do it"]}', "nonsense", "still nonsense"])
     assert agent.run("x").outcome == "fail"
+
+
+def test_adaptive_vision_policy(tmp_path):
+    from omni_agent.actions import Action
+    from omni_agent.planner import StepRecord
+
+    agent, _ = make_agent(tmp_path, [])
+    many = [Element(i, "text", (0, i * 20, 50, i * 20 + 15), f"t{i}") for i in range(20)]
+    few = many[:3]
+    ok = StepRecord(Action(action="click", target="x"), "clicked 'x'")
+    stuck = StepRecord(Action(action="click", target="x"), "clicked 'x' (no visible change)")
+    assert agent._needs_image(many, []) is False
+    assert agent._needs_image(few, []) is True
+    assert agent._needs_image(many, [ok]) is False
+    assert agent._needs_image(many, [stuck]) is True
+    agent.s.vision = "always"
+    assert agent._needs_image(many, [ok]) is True
+
+
+def test_refuses_to_type_into_existing_file(tmp_path):
+    agent, ex = make_agent(tmp_path, ['{"steps": ["type \\"hi\\""]}'], ask=lambda q: False)
+    agent.title = lambda: "recovery-codes.txt - Notepad"
+    rec = agent.run("write hi")
+    assert rec.outcome == "aborted" and "recovery-codes.txt" in rec.summary and ex.calls == []
+
+
+def test_editor_plan_starts_fresh_document(tmp_path):
+    agent, ex = make_agent(tmp_path, ['{"steps": ["open Notepad", "type \\"hi\\""]}', '{"done": true}'])
+    agent.run("open notepad and write hi")
+    assert ex.calls == [("launch", "Notepad"), ("hotkey", ("ctrl", "n")), ("type", "hi")]

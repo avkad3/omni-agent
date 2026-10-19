@@ -24,7 +24,10 @@ class OllamaModel:
             "model": self.model,
             "messages": messages,
             "stream": False,
-            "options": {"temperature": 0, "num_ctx": 8192},
+            # 6k context covers screenshot (~300 tokens) + element list + history. Leave GPU layer
+            # placement to Ollama: forcing every layer onto a 4 GB card spills into shared memory
+            # and is ~2.5x slower than its automatic CPU/GPU split.
+            "options": {"temperature": 0, "num_ctx": 6144},
             "keep_alive": "15m",
         }
         if json_mode:

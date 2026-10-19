@@ -21,6 +21,8 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--backend", choices=["ollama", "gemini"])
     r.add_argument("--model", help="Ollama or Gemini model name")
     r.add_argument("--max-steps", type=int)
+    r.add_argument("--vision", choices=["auto", "always", "never"],
+                   help="when the planner sees the screenshot (auto = only when OCR text is not enough)")
     r.add_argument("--monitor", type=int, help="mss monitor number (1 = primary)")
     r.add_argument("--dry-run", action="store_true", help="plan and locate targets, but never touch input")
     r.add_argument("--no-confirm", action="store_true", help="do not ask before risky actions")
@@ -46,6 +48,8 @@ def main(argv: list[str] | None = None) -> int:
             settings.ollama_model = a.model
     if a.max_steps:
         settings.max_steps = a.max_steps
+    if a.vision:
+        settings.vision = a.vision
     if a.monitor:
         settings.monitor = a.monitor
     settings.dry_run = a.dry_run

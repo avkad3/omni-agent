@@ -27,6 +27,14 @@ class Settings:
     model_width: int = 1288
     model_height: int = 728
 
+    # When the planner gets the screenshot: "auto" (only when the element list is not enough),
+    # "always", or "never". On a 4 GB GPU an image turn costs ~20 s and a text-only turn ~5-8 s.
+    vision: str = field(default_factory=lambda: _env("VISION", "auto"))
+    min_elements_for_text: int = 8  # fewer OCR elements than this (games, canvases) -> show the image
+
+    decompose: bool = True  # split the goal into steps first; simple steps then run without the model
+    verify_end: bool = True  # one screenshot check that the goal is really complete before reporting success
+
     max_steps: int = field(default_factory=lambda: int(_env("MAX_STEPS", "15")))
     action_pause: float = 0.6  # seconds to let the UI settle after an action
     type_interval: float = 0.02

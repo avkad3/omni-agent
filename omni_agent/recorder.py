@@ -22,6 +22,8 @@ class StepLog:
     timings: dict = field(default_factory=dict)
     image: str = ""
     raw: str = ""
+    subtask: str = ""
+    source: str = ""  # "skill" (no model call) or "planner"
 
 
 class Recorder:
@@ -73,7 +75,8 @@ class Recorder:
 <section class="step">
   <img src="{e(s.image)}" loading="lazy" alt="step {s.step}">
   <div class="meta">
-    <h2>Step {s.step}: {e(a.get('action', ''))}</h2>
+    <h2>Step {s.step}: {e(a.get('action', ''))}{f' <span class="muted">via {e(s.source)}</span>' if s.source else ''}</h2>
+    {f'<p class="muted">Plan step: {e(s.subtask)}</p>' if s.subtask else ''}
     <p class="thought">{e(a.get('thought', ''))}</p>
     <p><b>Action</b> <code>{e(json.dumps(detail))}</code></p>
     <p><b>Result</b> {e(s.result)}{f' &middot; grounded by <b>{e(s.method)}</b>' if s.method else ''}</p>
@@ -97,6 +100,7 @@ border-radius:12px;padding:12px;margin:14px 0}} .step img{{width:100%;border-rad
 </style></head><body>
 <h1>{e(result['goal'])}</h1>
 <p><span class="badge {badge}">{e(result['outcome'])}</span> {e(result['summary'])}</p>
+{'<p><b>Plan</b> ' + ' &rarr; '.join(e(str(p)) for p in result.get('plan', [])) + '</p>' if result.get('plan') else ''}
 <p class="muted">{result['steps']} steps &middot; {result['seconds']}s &middot; model {e(str(result.get('model', '')))}</p>
 {''.join(cards)}
 </body></html>"""
