@@ -1,0 +1,39 @@
+"""Runtime settings. Everything can be overridden with OMNI_* environment variables or CLI flags."""
+
+from __future__ import annotations
+
+import os
+from dataclasses import dataclass, field
+from pathlib import Path
+
+
+def _env(name: str, default: str) -> str:
+    return os.environ.get(f"OMNI_{name}", default)
+
+
+@dataclass
+class Settings:
+    # Which planner backend to use: "ollama" (local, default) or "gemini" (free tier, needs GEMINI_API_KEY).
+    backend: str = field(default_factory=lambda: _env("BACKEND", "ollama"))
+    ollama_url: str = field(default_factory=lambda: _env("OLLAMA_URL", "http://localhost:11434"))
+    ollama_model: str = field(default_factory=lambda: _env("OLLAMA_MODEL", "qwen2.5vl:3b"))
+    gemini_model: str = field(default_factory=lambda: _env("GEMINI_MODEL", "gemini-2.5-flash"))
+    gemini_api_key: str = field(default_factory=lambda: os.environ.get("GEMINI_API_KEY", ""))
+
+    # Screen capture: 1 = primary monitor (mss numbering).
+    monitor: int = field(default_factory=lambda: int(_env("MONITOR", "1")))
+    # The model sees a resized copy. Multiples of 28 keep Qwen-VL from rescaling again,
+    # so coordinates it returns map back exactly.
+    model_width: int = 1288
+    model_height: int = 728
+
+    max_steps: int = field(default_factory=lambda: int(_env("MAX_STEPS", "15")))
+    action_pause: float = 0.6  # seconds to let the UI settle after an action
+    type_interval: float = 0.02
+
+    # Safety
+    dry_run: bool = False  # plan and ground, but never move the mouse or press keys
+    confirm_risky: bool = True  # ask in the terminal before delete/send/pay-like actions
+    allowed_apps: list[str] = field(default_factory=list)  # empty = no restriction
+
+    runs_dir: Path = field(default_factory=lambda: Path(_env("RUNS_DIR", "runs")))
