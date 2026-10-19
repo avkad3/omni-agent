@@ -30,6 +30,7 @@ from PIL import Image
 from omni_agent.config import Settings
 from omni_agent.grounding import POINT_PROMPT, Grounder, best_text_match, parse_point, snap
 from omni_agent.models import make_model
+from omni_agent.models.ollama import ModelError
 from omni_agent.perception import ScreenParser
 from omni_agent.perception.detector import load_detector
 
@@ -79,13 +80,20 @@ def evaluate(sample: dict, parser: ScreenParser, grounder: Grounder, model) -> d
 
     t = time.perf_counter()
     view = img.resize((grounder.mw, grounder.mh), Image.LANCZOS)
-    raw = model.generate(POINT_PROMPT.format(w=grounder.mw, h=grounder.mh, target=instr), [view])
+    model_error = ""
+    try:
+        raw = model.generate(POINT_PROMPT.format(w=grounder.mw, h=grounder.mh, target=instr), [view])
+    except ModelError as e:  # recorded separately: a broken reply is not a pointing miss
+        raw, model_error = "", str(e)
     calls += 1
     p = parse_point(raw, grounder.mw, grounder.mh)
     pts["point"] = (p[0] * W / grounder.mw, p[1] * H / grounder.mh) if p else None
     snapped = snap(*pts["point"], elements, radius=grounder.snap_radius * W / 1920) if pts["point"] else None
     pts["point+snap"] = snapped.center if snapped is not None else pts["point"]
-    zoomed = grounder._zoom(img, instr, *pts["point"]) if pts["point"] else None
+    try:
+        zoomed = grounder._zoom(img, instr, *pts["point"]) if pts["point"] else None
+    except ModelError as e:
+        zoomed, model_error = None, str(e)
     calls += pts["point"] is not None
     pts["point+zoom"] = zoomed or pts["point"]
     model_s = time.perf_counter() - t
@@ -99,7 +107,8 @@ def evaluate(sample: dict, parser: ScreenParser, grounder: Grounder, model) -> d
 
     return {"file": sample["file_name"], "source": sample["data_source"], "type": sample["data_type"],
             "instruction": instr, "size": [W, H], "route": route, "text_score": round(score, 3),
-            "hits": {m: inside(pts[m], box) for m in METHODS}, "calls": calls,
+            "hits": {m: inside(pts[m], box) for m in METHODS}, "calls": calls, "raw_point": raw[:120],
+            "model_error": model_error,
             "perceive_s": round(perceive_s, 2), "model_s": round(model_s, 1), "n_elements": len(elements)}
 
 
@@ -122,6 +131,8 @@ def report(path: Path = OUT) -> str:
         routes[r["route"]].append(r["hits"]["pipeline"])
     lines += ["", "Pipeline routes: " + ", ".join(f"{k} {len(v)} ({100 * sum(v) / len(v):.0f}% hit)"
                                                for k, v in routes.items())]
+    errors = sum(bool(r.get("model_error")) for r in rows)
+    lines.append(f"Samples with a model error (counted as misses): {errors}")
     lines.append(f"Avg model time per sample {sum(r['model_s'] for r in rows) / len(rows):.1f}s, "
                  f"perception {sum(r['perceive_s'] for r in rows) / len(rows):.1f}s")
     return "\n".join(lines)
